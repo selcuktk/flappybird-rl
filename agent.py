@@ -8,7 +8,7 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 
 class Agent:
-    def run(self, is_training= True, render=False):
+    def run(self, is_training=True, render=False):
         env = gymnasium.make("FlappyBird-v0", render_mode="human" if render else None)
 
         num_states = env.observation_space.shape[0]
@@ -19,23 +19,24 @@ class Agent:
         if is_training:
             memory = ReplayMemory(10000)
 
-        state, _ = env.reset()
-        while True:
-            # Next action:
-            # (feed the observation to your agent here)
-            action = env.action_space.sample()
 
-            # Processing:
-            new_state, reward, terminated, _, info = env.step(action)
-            if is_training:
-                memory.append((state, action, reward, terminated, info))
+        for episode in range(10000):
+            state, _ = env.reset()
+            while True:
+                # Next action:
+                # (feed the observation to your agent here)
+                action = env.action_space.sample()
 
-            # Move to new state
-            state = new_state
+                # Processing:
+                new_state, reward, terminated, _, info = env.step(action)
+                if is_training:
+                    memory.append((state, action, reward, terminated, info))
 
+                # Move to new state
+                state = new_state
 
-            # Checking if the player is still alive
-            if terminated:
-                break
+                # Checking if the player is still alive
+                if terminated:
+                    break
 
         env.close()
