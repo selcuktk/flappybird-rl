@@ -7,7 +7,7 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 
 class Agent:
-    def run(self, is_training= True, render=False , env):
+    def run(self, is_training= True, render=False):
         env = gymnasium.make("FlappyBird-v0", render_mode="human" if render else None)
 
         num_states = env.observation_space.shape[0]
