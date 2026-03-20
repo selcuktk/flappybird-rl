@@ -1,4 +1,6 @@
 import itertools
+import random
+
 import flappy_bird_gymnasium
 import gymnasium
 from dqn import DQN
@@ -16,9 +18,9 @@ class Agent:
             hyperparameters = all_hyperparameter_sets[hyperparameter_set]
             # print(hyperparameters)
 
-        self.replay_memory_size = ReplayMemory(hyperparameters['replay_memory_size'])
+        self.replay_memory_size = hyperparameters['replay_memory_size']
         self.mini_batch_size = hyperparameters['mini_batch_size']
-        self.epsilon_init    = hyperparameters['epsilon_init']
+        self.epsilon_init = hyperparameters['epsilon_init']
         self.epsilon_decay = hyperparameters['epsilon_decay']
         self.epsilon_min = hyperparameters['epsilon_min']
 
@@ -29,27 +31,45 @@ class Agent:
         num_actions = env.action_space.n
 
         rewards_per_episode = []
+        epsilon_history = []
 
-        policy_dqn = DQN(num_states, num_actions).to_device(device)
+        policy_dqn = DQN(num_states, num_actions).to(device)
 
         if is_training:
             memory = ReplayMemory(self.replay_memory_size)
+            epsilon = self.epsilon_init
 
         # basicly itertools goes infinity or smt
         for episode in itertools.count():
             state, _ = env.reset()
+            state = torch.tensor(state, dtype=torch.float, device=device)
+
             terminated = False
             episode_reward = 0.0
+
             while not terminated:
-                # Next action:
-                # (feed the observation to your agent here)
-                action = env.action_space.sample()
+
+                # exploration & exploitation
+                if is_training and random.random() < epsilon:
+                    action = env.action_space.sample()
+                    action = torch.tensor(action, dtype=torch.int64, device=device)
+                else:
+                    with torch.no_grad():
+                        # unsqueeze:
+                        # tensor([1, 2, 3, ...]) ==> tensor([[1, 2, 3, ...]])
+                        action = policy_dqn(state.unsqueeze(dim=0)).squeeze().argmax()
+                        # firstly we add a dimension to smoothly calculate and later we turned it into back situation
+                        # as a result, it returns a tensor
 
                 # Processing:
-                new_state, reward, terminated, _, info = env.step(action)
+                new_state, reward, terminated, _, info = env.step(action.item())
 
                 # Accumulate reward
                 episode_reward += reward
+
+                # Convert new state and reward to tensors on device
+                new_state = torch.tensor(new_state, dtype=torch.float, device=device)
+                reward = torch.tensor(reward, dtype=torch.float, device=device)
 
                 if is_training:
                     memory.append((state, action, reward, terminated, info))
@@ -59,4 +79,9 @@ class Agent:
 
             rewards_per_episode.append(episode_reward)
 
+            epsilon = max(epsilon * self.epsilon_decay, epsilon - self.epsilon_min)
+            epsilon_history.append(epsilon)
 
+if __name__ == '__main__':
+    agent = Agent('cartpole1')
+    agent.run(is_training=True, render=True)
